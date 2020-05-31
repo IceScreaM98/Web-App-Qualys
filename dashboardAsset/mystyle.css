@@ -1,0 +1,21 @@
+#container{
+    width: 100%;
+    margin: 0 auto;
+}
+
+.row{
+    width: 100%;
+    padding: 10px;
+}
+
+.table td {
+    text-align: center;   
+ }
+
+ .table th {
+    text-align: center;   
+ }
+
+ .table tr {
+    text-align: center;   
+ }

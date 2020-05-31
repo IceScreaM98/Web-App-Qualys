@@ -1,0 +1,84 @@
+<html lang="en">
+    <head>
+        <title>Login form</title>
+        <link rel="stylesheet" type="text/css" href="mystyle.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+        <script>
+            var response;
+            function send_login(){ //richiesta asincrona che dato user e psw ritorna il JWT token
+                xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function() {
+                    if (this.readyState == 4 && this.status == 200) {
+                        document.getElementById("buttonLogin").innerHTML = "Login";
+                        response = JSON.parse(this.responseText);
+                        loadPage(response);
+                    }
+                    else document.getElementById("buttonLogin").innerHTML= '<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>';
+                    
+
+                };
+                xhttp.open("POST", "../scripts/login.php", true);
+                xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                username = document.getElementById("username").value;
+                password = document.getElementById("password").value;
+                xhttp.send("username="+username+"&password="+password);
+            }
+
+            function loadPage(response){ 
+                if (response.hasOwnProperty("error")){
+                    document.getElementById("info").innerHTML = response["error"];
+                }
+                else{ 
+                    if (response.hasOwnProperty("login"))
+                        if (response["login"] == "successful")
+                            window.location.replace("dashboard.html");
+                        else document.getElementById("info").innerHTML = "Credenziali non valide";
+                    else
+                        document.getElementById("info").innerHTML = "Login fallito";
+                }
+            }
+
+            function getCookie(cname) { //funzione ausiliaria per ottenere un cookie specifico
+                var name = cname + "=";
+                var decodedCookie = decodeURIComponent(document.cookie);
+                var ca = decodedCookie.split(';');
+                for(var i = 0; i <ca.length; i++) {
+                    var c = ca[i];
+                    while (c.charAt(0) == ' ') {
+                        c = c.substring(1);
+                    }
+                    if (c.indexOf(name) == 0) {
+                        return c.substring(name.length, c.length);
+                    }
+                }
+                return "";
+            }
+
+            function check_cookie(){ //se il cookie e' gia' presente non c'e' bisogno di fare login
+                var cookie = document.cookie;
+                if (getCookie("PHPSESSID") != "") window.location.replace("../dashboardAsset/dashboard.html");
+            }
+        </script>
+    </head>
+    <body onload="check_cookie()">
+        <div class="container">
+            <form>
+                <div class="row">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" class="form-control" placeholder="quays_ab1"></input>
+                </div>
+                <div class="row">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-control"></input>
+                </div>
+                <div class="row">
+                    <button type="button" id="buttonLogin" onclick="send_login()" class="form-control btn btn-primary" >Login</button>
+                </div>
+            </form>
+            <div id="info"></div>
+        </div>
+    </body>
+</html>

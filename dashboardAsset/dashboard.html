@@ -1,0 +1,221 @@
+<html lang="en">
+    <head>
+        <title>Dashboard</title>
+        <link rel="stylesheet" type="text/css" href="mystyle.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+        <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+
+        <script>
+            var response;
+
+            function send_name(){ //richiesta asincrona che dato il tag da cercare ritorna gli asset desiderati
+                xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function() {
+                    if (this.readyState == 4 && this.status == 200) {
+					
+                        response = JSON.parse(this.responseText);
+						var hosts = [];
+				
+						if (!response.hasOwnProperty("error")){
+							index = 1;
+							response.forEach(function(asset){
+							hosts.push(asset["hostId"]);
+							index ++;
+							});
+						}
+						
+						createTable(response);								//stampa il primo giro di dati
+						
+						xhttp2 = new XMLHttpRequest();
+						xhttp2.onreadystatechange = function() {
+							if (this.readyState == 4 && this.status == 200) {
+								document.getElementById("buttonSearch").innerHTML = "Search";
+								response2 = JSON.parse(this.responseText);
+								fillTableVulnerabilities(response2);		//stampa il secondo giro di dati
+							}
+							else document.getElementById("buttonSearch").innerHTML= '<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>';
+						};
+				
+						xhttp2.open("POST", "../scripts/search_vulnerabilities.php", true);
+						xhttp2.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+						xhttp2.send("hostIdList=" + hosts.join(","));														//invia la stringa di assetId separati da virgole
+                    }
+                    else document.getElementById("buttonSearch").innerHTML= '<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>';
+                };
+				
+                xhttp.open("POST", "../scripts/search_asset.php", true);
+                xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                lastLoggedOnUser = document.getElementById("lastloggedonuser").value;
+                xhttp.send("lastloggedonuser="+lastLoggedOnUser+"&token="+getCookie("token"));
+            }
+
+            function createTable(response){  //popolo la tabella con i dati ottenuti
+                if (!response.hasOwnProperty("error")){
+                    index = 1;
+                    list = document.getElementById("asset_list");
+                    html = "";
+                    hostId_list = "";
+                    response.forEach(function(asset){
+                        html += "<tr>";
+                        html += "<td>"+index+"</td>";
+                        html += "<td>"+asset["lastLoggedOnUser"]+"</td>";
+                        html += "<td>"+asset["assetName"]+"</td>";
+                        for (i = 0; i < 5; i++){
+                            html += "<td id='" + asset["hostId"] + "-c" + i + "'></td>";
+                        }
+                        for (i = 0; i < 5; i++){
+                            html += "<td id='" + asset["hostId"] + "-p" + i + "'></td>";
+                        }
+                        html += "</tr>";
+                        index++;
+                    });
+                    list.innerHTML = html;
+                }
+                else document.getElementById("info").innerHTML = response["error"];
+
+            }
+
+            //dal json ottenuto riempo i campi della tabella e in base alle checkbox spuntate decido i dati
+            //da far vedere (non posso filtrare direttamente dalle api perchè non esiste un parametro per distinguere potenziali da confermate)
+            function fillTableVulnerabilities(response){ 
+                if (!response.hasOwnProperty("error")){
+                    var arrayConfirmedChecked = new Array();
+                    var arrayPotentialChecked = new Array();
+                    for (i = 0; i < 5; i++){
+                        arrayConfirmedChecked.push(document.getElementById("confirmedCheckbox" + (i+1)).checked);
+                        arrayPotentialChecked.push(document.getElementById("potentialCheckbox" + (i+1)).checked);
+                    }
+                    response.forEach(function(asset){
+                        for (i = 0; i < 5; i++){
+                            if (arrayConfirmedChecked[i]) document.getElementById(asset["hostId"] + "-c" + i).innerHTML = asset["vulnerabilityConfirmed"][i];
+                            else document.getElementById(asset["hostId"] + "-c" + i).innerHTML = "X";
+                            if (arrayConfirmedChecked[i]) document.getElementById(asset["hostId"] + "-p" + i).innerHTML = asset["vulnerabilityPotential"][i];
+                            else document.getElementById(asset["hostId"] + "-p" + i).innerHTML = "X";
+                        }
+                    });
+
+                }
+                else document.getElementById("info").innerHTML = response["error"];
+            }
+
+            function getCookie(cname) { //funzione ausiliaria per ottenere un cookie specifico
+                var name = cname + "=";
+                var decodedCookie = decodeURIComponent(document.cookie);
+                var ca = decodedCookie.split(';');
+                for(var i = 0; i <ca.length; i++) {
+                    var c = ca[i];
+                    while (c.charAt(0) == ' ') {
+                        c = c.substring(1);
+                    }
+                    if (c.indexOf(name) == 0) {
+                        return c.substring(name.length, c.length);
+                    }
+                }
+                return "";
+            }
+
+            function check_cookie(){  //se non sono loggato vengo reindirizzato alla pagina di login
+            
+                var cookie = document.cookie;
+                if (getCookie("PHPSESSID") == "") window.location.replace("../dashboardAsset/loginPage.html");
+            
+            }
+
+            function logout(){ //cambio pagina ed eseguo logout.php
+                window.location.replace("/QualysUNIPR/scripts/logout.php");
+            }
+            
+        </script>
+    </head>
+    <body onload="check_cookie()">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <button class="btn btn-danger" onclick="logout()">Logout</button>
+        </nav>
+        <div class="container">
+            <form>
+                <div class="row">
+                    <label for="username">LastLoggedOnUser</label>
+                    <input type="text" id="lastloggedonuser" class="form-control" placeholder="Username"></input>
+                </div>
+                <div class="row">
+                    <div class="col-sm-3">Vulnerabilita' confermate</div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="confirmedCheckbox1" checked>
+                        <label class="form-check-label" for="confirmedCheckbox1">1</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="confirmedCheckbox2" checked>
+                        <label class="form-check-label" for="confirmedCheckbox2">2</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="confirmedCheckbox3" checked>
+                        <label class="form-check-label" for="confirmedCheckbox3">3</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="confirmedCheckbox4" checked>
+                        <label class="form-check-label" for="confirmedCheckbox4">4</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="confirmedCheckbox5" checked>
+                        <label class="form-check-label" for="confirmedCheckbox5">5</label>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-sm-3">Vulnerabilita' potenziali</div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="potentialCheckbox1" checked>
+                        <label class="form-check-label" for="potentialCheckbox1">1</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="potentialCheckbox2" checked>
+                        <label class="form-check-label" for="potentialCheckbox2">2</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="potentialCheckbox3" checked>
+                        <label class="form-check-label" for="potentialCheckbox3">3</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="potentialCheckbox4" checked>
+                        <label class="form-check-label" for="potentialCheckbox4">4</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="potentialCheckbox5" checked>
+                        <label class="form-check-label" for="potentialCheckbox5">5</label>
+                    </div>
+                </div>
+                <div class="row">
+                    <button type="button" id="buttonSearch" onclick="send_name()" class="form-control btn btn-primary" >Search</button>
+                </div>
+            </form>
+        </div>
+        <table id="assets" class="table table-hover" data-toggle="table">
+            <thead>
+                <tr>
+                    <th colspan="3">Informazioni asset</th>
+                    <th colspan="5">Vulnerabilita' confermate</th>
+                    <th colspan="5">Vulnerabilita' potenziali</th>
+                  </tr>
+                <tr>
+                  <th data-field="numberCol" data-sortable="true" scope="col">#</th>
+                  <th data-field="lastloggedonuserCol" data-sortable="true" scope="col">Last Logged On User</th>
+                  <th data-field="assetnameCol" data-sortable="true" scope="col">assetName</th>
+                  <th data-field="c1" data-sortable="true" scope="col">1</th>
+                  <th data-field="c2" data-sortable="true" scope="col">2</th>
+                  <th data-field="c3" data-sortable="true" scope="col">3</th>
+                  <th data-field="c4" data-sortable="true" scope="col">4</th>
+                  <th data-field="c5" data-sortable="true" scope="col">5</th>
+                  <th data-field="p1" data-sortable="true" scope="col">1</th>
+                  <th data-field="p2" data-sortable="true" scope="col">2</th>
+                  <th data-field="p3" data-sortable="true" scope="col">3</th>
+                  <th data-field="p4" data-sortable="true" scope="col">4</th>
+                  <th data-field="p5" data-sortable="true" scope="col">5</th>
+                </tr>
+              </thead>
+              <tbody id="asset_list">
+              </tbody>
+        </table>
+        <div id="info"></div>
+    </body>
+</html>
